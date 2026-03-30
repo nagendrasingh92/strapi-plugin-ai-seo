@@ -1,6 +1,6 @@
 {
   "name": "strapi-plugin-ai-seo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-powered SEO tag generator for Strapi. Reads yoastHeadJson or SEO component data from entries, generates meta tags, OG tags, Twitter cards, and schema markup using LLM, with copy and apply functionality.",
   "license": "MIT",
   "author": {
