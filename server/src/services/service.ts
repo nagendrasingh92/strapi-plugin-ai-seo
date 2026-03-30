@@ -165,8 +165,8 @@ Return JSON in this exact structure:
    */
   async _callLLM(prompt: string): Promise<any> {
     const apiKey = process.env.LLM_API_KEY;
-    const baseUrl = process.env.STRAPI_ADMIN_LLM_BASE_URL;
-    const model = process.env.STRAPI_ADMIN_LLM_MODEL || 'gpt-4o-mini';
+    const baseUrl = process.env.LLM_BASE_URL;
+    const model = process.env.LLM_MODEL || 'gpt-4o-mini';
 
     if (!apiKey || !baseUrl) {
       throw new Error('LLM not configured. Set LLM_API_KEY and STRAPI_ADMIN_LLM_BASE_URL environment variables.');

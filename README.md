@@ -46,10 +46,10 @@ Add the following to your `.env` file:
 LLM_API_KEY=your-api-key-here
 
 # Required: Base URL of the OpenAI-compatible API
-STRAPI_ADMIN_LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 
 # Optional: Model to use (default: gpt-4o-mini)
-STRAPI_ADMIN_LLM_MODEL=gemini-2.5-flash-lite
+LLM_MODEL=gemini-2.5-flash-lite
 ```
 
 **Supported LLM Providers:**

@@ -38,8 +38,8 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 
   async getSettings(ctx: any) {
-    const baseUrl = process.env.STRAPI_ADMIN_LLM_BASE_URL || '';
-    const model = process.env.STRAPI_ADMIN_LLM_MODEL || '';
+    const baseUrl = process.env.LLM_BASE_URL || '';
+    const model = process.env.LLM_MODEL || '';
     const hasApiKey = !!process.env.LLM_API_KEY;
 
     ctx.body = {
