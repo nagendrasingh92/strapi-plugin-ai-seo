@@ -13,6 +13,8 @@ import {
   Toggle,
   Alert,
   IconButton,
+  Checkbox,
+  Grid,
 } from '@strapi/design-system';
 import { Duplicate, Check, Sparkle } from '@strapi/icons';
 import { useFetchClient } from '@strapi/strapi/admin';
@@ -29,6 +31,21 @@ interface CopiedState {
   [key: string]: boolean;
 }
 
+const TOP_12_SCHEMAS = [
+  { value: 'Article', label: 'Article' },
+  { value: 'BlogPosting', label: 'BlogPosting' },
+  { value: 'Product', label: 'Product' },
+  { value: 'FAQPage', label: 'FAQPage' },
+  { value: 'Organization', label: 'Organization' },
+  { value: 'LocalBusiness', label: 'LocalBusiness' },
+  { value: 'WebPage', label: 'WebPage' },
+  { value: 'BreadcrumbList', label: 'BreadcrumbList' },
+  { value: 'HowTo', label: 'HowTo' },
+  { value: 'Event', label: 'Event' },
+  { value: 'Person', label: 'Person' },
+  { value: 'Service', label: 'Service' },
+];
+
 const AiSeoModal = ({ uid, documentId, locale, onClose }: AiSeoModalProps) => {
   const { post } = useFetchClient();
 
@@ -39,6 +56,10 @@ const AiSeoModal = ({ uid, documentId, locale, onClose }: AiSeoModalProps) => {
   const [seoData, setSeoData] = useState<any>(null);
   const [structureType, setStructureType] = useState<string>('none');
   const [copied, setCopied] = useState<CopiedState>({});
+  const [selectedSchemas, setSelectedSchemas] = useState<string[]>(
+    TOP_12_SCHEMAS.map((s) => s.value)
+  );
+  const [customSchemas, setCustomSchemas] = useState('');
 
   const copyToClipboard = useCallback(async (text: string, key: string) => {
     try {
@@ -74,6 +95,8 @@ const AiSeoModal = ({ uid, documentId, locale, onClose }: AiSeoModalProps) => {
         uid,
         documentId,
         locale,
+        schemaTypes: selectedSchemas,
+        customSchemas,
       });
 
       const data = response.data;
@@ -484,6 +507,72 @@ const AiSeoModal = ({ uid, documentId, locale, onClose }: AiSeoModalProps) => {
                 optimized SEO metadata including meta tags, Open Graph tags, Twitter cards,
                 and schema markup.
               </Typography>
+
+              {/* Schema Type Selection */}
+              <Box
+                paddingTop={4}
+                style={{ width: '100%', maxWidth: '700px' }}
+              >
+                <Box
+                  padding={4}
+                  background="neutral100"
+                  borderColor="neutral200"
+                  hasRadius
+                  style={{ border: '1px solid #dcdce4' }}
+                >
+                  <Flex justifyContent="space-between" alignItems="center" paddingBottom={3}>
+                    <Typography variant="delta" textColor="neutral800">
+                      Schema Types
+                    </Typography>
+                    <Button
+                      variant="ghost"
+                      size="S"
+                      onClick={() => {
+                        if (selectedSchemas.length === TOP_12_SCHEMAS.length) {
+                          setSelectedSchemas([]);
+                        } else {
+                          setSelectedSchemas(TOP_12_SCHEMAS.map((s) => s.value));
+                        }
+                      }}
+                    >
+                      {selectedSchemas.length === TOP_12_SCHEMAS.length ? 'Deselect All' : 'Select All'}
+                    </Button>
+                  </Flex>
+                  <Grid.Root gap={3} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    {TOP_12_SCHEMAS.map((schema) => (
+                      <Grid.Item key={schema.value} col={1}>
+                        <Checkbox
+                          checked={selectedSchemas.includes(schema.value)}
+                          onCheckedChange={(checked: boolean) => {
+                            if (checked) {
+                              setSelectedSchemas((prev) => [...prev, schema.value]);
+                            } else {
+                              setSelectedSchemas((prev) =>
+                                prev.filter((s) => s !== schema.value)
+                              );
+                            }
+                          }}
+                        >
+                          {schema.label}
+                        </Checkbox>
+                      </Grid.Item>
+                    ))}
+                  </Grid.Root>
+
+                  <Box paddingTop={4}>
+                    <TextInput
+                      label="Additional Schema Types"
+                      placeholder="e.g. Recipe, VideoObject, Course (comma separated)"
+                      value={customSchemas}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setCustomSchemas(e.target.value)
+                      }
+                      hint="AI will generate these additional schema types along with the selected ones above"
+                    />
+                  </Box>
+                </Box>
+              </Box>
+
               <Box paddingTop={2}>
                 <Button
                   onClick={handleGenerate}

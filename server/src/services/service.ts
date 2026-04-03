@@ -4,6 +4,8 @@ interface GenerateParams {
   uid: string;
   documentId: string;
   locale?: string;
+  schemaTypes?: string[];
+  customSchemas?: string;
 }
 
 interface ApplyParams {
@@ -81,7 +83,18 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   /**
    * Build the LLM prompt based on content and structure type.
    */
-  _buildPrompt(content: string, structure: SeoStructure, existingSeo: any): string {
+  _buildPrompt(content: string, structure: SeoStructure, existingSeo: any, schemaTypes?: string[], customSchemas?: string): string {
+    // Build schema instructions
+    let schemaInstruction = '';
+    const allSchemaTypes: string[] = [...(schemaTypes || [])];
+    if (customSchemas) {
+      const custom = customSchemas.split(',').map((s: string) => s.trim()).filter(Boolean);
+      allSchemaTypes.push(...custom);
+    }
+    if (allSchemaTypes.length > 0) {
+      schemaInstruction = `\nSCHEMA TYPES TO GENERATE: You MUST generate schema markup for each of these types: ${allSchemaTypes.join(', ')}. Generate a complete, valid Schema.org JSON-LD object for EACH type listed.`;
+    }
+
     const basePrompt = `You are an expert SEO specialist. Analyze the following content and generate comprehensive SEO metadata.
 
 CONTENT:
@@ -89,27 +102,28 @@ ${content}
 
 ${existingSeo ? `EXISTING SEO DATA (use as reference, improve if needed):
 ${JSON.stringify(existingSeo, null, 2)}` : ''}
+${schemaInstruction}
 
-Generate SEO metadata in the following JSON format. Be precise and follow SEO best practices:
-- Title: 50-60 characters, include primary keyword
-- Description: 150-160 characters, compelling and keyword-rich
-- Keywords: comma-separated, 5-10 relevant keywords
-- OG tags: optimized for social sharing
-- Twitter card: summary_large_image format
-- Schema markup: appropriate for the content type
+Generate SEO metadata following these SEO best practices:
+- Title: 50-60 characters, include the primary keyword extracted from the content
+- Description: 150-160 characters, compelling and keyword-rich based on the actual content
+- Keywords: comma-separated, 5-10 relevant keywords extracted from the content
 
-IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanation.`;
+CRITICAL RULES:
+- Generate REAL, ACTUAL content based on the text provided above. Do NOT use placeholders like [primary keyword], [keyword 1], [brand name], etc.
+- Every field must contain actual, finalized text derived from the content - never template variables or bracketed placeholders.
+- Return ONLY valid JSON, no markdown, no code blocks, no explanation.`;
 
     if (structure.type === 'yoastHeadJson') {
       return `${basePrompt}
 
-Return JSON in this exact structure:
+Return JSON with these keys (fill every value with real content from the text above, NO placeholders):
 {
-  "title": "SEO Title",
-  "description": "Meta description",
-  "canonical": "canonical URL",
-  "og_title": "OG Title",
-  "og_description": "OG Description",
+  "title": "(actual SEO title based on content)",
+  "description": "(actual meta description based on content)",
+  "canonical": "",
+  "og_title": "(actual OG title)",
+  "og_description": "(actual OG description)",
   "og_type": "article",
   "og_locale": "en_US",
   "twitter_card": "summary_large_image",
@@ -122,39 +136,40 @@ Return JSON in this exact structure:
   },
   "schema": {
     "@context": "https://schema.org",
-    "@graph": []
+    "@graph": [... generate schema objects for each requested schema type ...]
   },
-  "keywords": "keyword1, keyword2"
+  "keywords": "(actual comma-separated keywords)"
 }`;
     }
 
     return `${basePrompt}
 
-Return JSON in this exact structure:
+Return JSON with these keys (fill every value with real content from the text above, NO placeholders):
 {
-  "title": "SEO Title",
-  "description": "Meta description",
-  "keywords": "keyword1, keyword2",
-  "canonicalURL": "canonical URL or empty string",
+  "title": "(actual SEO title based on content)",
+  "description": "(actual meta description based on content)",
+  "keywords": "(actual comma-separated keywords)",
+  "canonicalURL": "",
   "noindex": false,
   "nofollow": false,
   "schema": [
+    ... for EACH requested schema type, generate an object like:
     {
-      "title": "Schema Title",
-      "type": "Schema Type (e.g. FAQ Schema, Organization Schema)",
-      "schema": {}
+      "title": "(descriptive title for this schema)",
+      "type": "(schema type name, e.g. Article, FAQPage)",
+      "schema": { "@context": "https://schema.org", "@type": "...", ... complete schema object ... }
     }
   ],
   "ogGroup": [
-    { "property": "og:title", "content": "OG Title", "name": "" },
-    { "property": "og:description", "content": "OG Description", "name": "" },
+    { "property": "og:title", "content": "(actual OG title)", "name": "" },
+    { "property": "og:description", "content": "(actual OG description)", "name": "" },
     { "property": "og:type", "content": "article", "name": "" },
     { "property": "og:image", "content": "", "name": "" },
     { "property": "og:image:type", "content": "image/jpeg", "name": "" },
     { "property": "og:image:width", "content": "1200", "name": "" },
     { "property": "twitter:card", "content": "summary_large_image", "name": "" },
-    { "property": "twitter:title", "content": "Twitter Title", "name": "" },
-    { "property": "twitter:description", "content": "Twitter Description", "name": "" },
+    { "property": "twitter:title", "content": "(actual Twitter title)", "name": "" },
+    { "property": "twitter:description", "content": "(actual Twitter description)", "name": "" },
     { "property": "twitter:image", "content": "", "name": "" }
   ]
 }`;
@@ -248,7 +263,7 @@ Return JSON in this exact structure:
   /**
    * Generate SEO tags for an entry.
    */
-  async generateSeoTags({ uid, documentId, locale }: GenerateParams) {
+  async generateSeoTags({ uid, documentId, locale, schemaTypes, customSchemas }: GenerateParams) {
     const contentType = strapi.contentTypes[uid as keyof typeof strapi.contentTypes];
     if (!contentType) {
       throw new Error(`Content type ${uid} not found`);
@@ -279,7 +294,7 @@ Return JSON in this exact structure:
     const existingSeo = this._getExistingSeo(entry, structure);
 
     // Build prompt and call LLM
-    const prompt = this._buildPrompt(content, structure, existingSeo);
+    const prompt = this._buildPrompt(content, structure, existingSeo, schemaTypes, customSchemas);
     const generated = await this._callLLM(prompt);
 
     return {

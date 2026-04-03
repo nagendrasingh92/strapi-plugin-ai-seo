@@ -2,7 +2,7 @@ import type { Core } from '@strapi/strapi';
 
 const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   async generate(ctx: any) {
-    const { uid, documentId, locale } = ctx.request.body;
+    const { uid, documentId, locale, schemaTypes, customSchemas } = ctx.request.body;
 
     if (!uid || !documentId) {
       return ctx.badRequest('uid and documentId are required');
@@ -11,7 +11,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     const service = strapi.plugin('ai-seo').service('service');
 
     try {
-      const result = await service.generateSeoTags({ uid, documentId, locale });
+      const result = await service.generateSeoTags({ uid, documentId, locale, schemaTypes, customSchemas });
       ctx.body = result;
     } catch (error: any) {
       strapi.log.error('[ai-seo] Generation failed:', error);
