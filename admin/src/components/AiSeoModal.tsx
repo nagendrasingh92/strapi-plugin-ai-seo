@@ -126,7 +126,12 @@ const AiSeoModal = ({ uid, documentId, locale, onClose }: AiSeoModalProps) => {
         targetField: structureType === 'yoastHeadJson' ? 'yoastHeadJson' : 'seo',
       });
 
-      setSuccess('SEO data applied successfully! Refresh the page to see changes.');
+      setSuccess('SEO data applied successfully! Reloading...');
+      // Close modal and reload page to reflect changes
+      setTimeout(() => {
+        onClose();
+        window.location.reload();
+      }, 500);
     } catch (err: any) {
       const message = err?.response?.data?.error?.message || err?.message || 'Failed to apply SEO data';
       setError(message);
@@ -490,12 +495,74 @@ const AiSeoModal = ({ uid, documentId, locale, onClose }: AiSeoModalProps) => {
             </Box>
           )}
 
+          {/* Schema Type Selection - always visible */}
+          {!loading && (
+            <Box paddingBottom={4}>
+              <Box
+                padding={4}
+                background="neutral100"
+                hasRadius
+                style={{ border: '1px solid #dcdce4' }}
+              >
+                <Flex justifyContent="space-between" alignItems="center" paddingBottom={3}>
+                  <Typography variant="delta" textColor="neutral800">
+                    Schema Types
+                  </Typography>
+                  <Button
+                    variant="ghost"
+                    size="S"
+                    onClick={() => {
+                      if (selectedSchemas.length === TOP_12_SCHEMAS.length) {
+                        setSelectedSchemas([]);
+                      } else {
+                        setSelectedSchemas(TOP_12_SCHEMAS.map((s) => s.value));
+                      }
+                    }}
+                  >
+                    {selectedSchemas.length === TOP_12_SCHEMAS.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                </Flex>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {TOP_12_SCHEMAS.map((schema) => (
+                    <Checkbox
+                      key={schema.value}
+                      checked={selectedSchemas.includes(schema.value)}
+                      onCheckedChange={(checked: boolean) => {
+                        if (checked) {
+                          setSelectedSchemas((prev) => [...prev, schema.value]);
+                        } else {
+                          setSelectedSchemas((prev) =>
+                            prev.filter((s) => s !== schema.value)
+                          );
+                        }
+                      }}
+                    >
+                      {schema.label}
+                    </Checkbox>
+                  ))}
+                </div>
+
+                <Box paddingTop={4}>
+                  <TextInput
+                    label="Additional Schema Types"
+                    placeholder="e.g. Recipe, VideoObject, Course (comma separated)"
+                    value={customSchemas}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setCustomSchemas(e.target.value)
+                    }
+                    hint="AI will generate these additional schema types along with the selected ones above"
+                  />
+                </Box>
+              </Box>
+            </Box>
+          )}
+
           {!seoData && !loading && (
             <Flex
               direction="column"
               alignItems="center"
               justifyContent="center"
-              padding={8}
+              padding={4}
               gap={4}
             >
               <Sparkle style={{ width: '48px', height: '48px' }} />
@@ -507,72 +574,6 @@ const AiSeoModal = ({ uid, documentId, locale, onClose }: AiSeoModalProps) => {
                 optimized SEO metadata including meta tags, Open Graph tags, Twitter cards,
                 and schema markup.
               </Typography>
-
-              {/* Schema Type Selection */}
-              <Box
-                paddingTop={4}
-                style={{ width: '100%', maxWidth: '700px' }}
-              >
-                <Box
-                  padding={4}
-                  background="neutral100"
-                  borderColor="neutral200"
-                  hasRadius
-                  style={{ border: '1px solid #dcdce4' }}
-                >
-                  <Flex justifyContent="space-between" alignItems="center" paddingBottom={3}>
-                    <Typography variant="delta" textColor="neutral800">
-                      Schema Types
-                    </Typography>
-                    <Button
-                      variant="ghost"
-                      size="S"
-                      onClick={() => {
-                        if (selectedSchemas.length === TOP_12_SCHEMAS.length) {
-                          setSelectedSchemas([]);
-                        } else {
-                          setSelectedSchemas(TOP_12_SCHEMAS.map((s) => s.value));
-                        }
-                      }}
-                    >
-                      {selectedSchemas.length === TOP_12_SCHEMAS.length ? 'Deselect All' : 'Select All'}
-                    </Button>
-                  </Flex>
-                  <Grid.Root gap={3} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                    {TOP_12_SCHEMAS.map((schema) => (
-                      <Grid.Item key={schema.value} col={1}>
-                        <Checkbox
-                          checked={selectedSchemas.includes(schema.value)}
-                          onCheckedChange={(checked: boolean) => {
-                            if (checked) {
-                              setSelectedSchemas((prev) => [...prev, schema.value]);
-                            } else {
-                              setSelectedSchemas((prev) =>
-                                prev.filter((s) => s !== schema.value)
-                              );
-                            }
-                          }}
-                        >
-                          {schema.label}
-                        </Checkbox>
-                      </Grid.Item>
-                    ))}
-                  </Grid.Root>
-
-                  <Box paddingTop={4}>
-                    <TextInput
-                      label="Additional Schema Types"
-                      placeholder="e.g. Recipe, VideoObject, Course (comma separated)"
-                      value={customSchemas}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setCustomSchemas(e.target.value)
-                      }
-                      hint="AI will generate these additional schema types along with the selected ones above"
-                    />
-                  </Box>
-                </Box>
-              </Box>
-
               <Box paddingTop={2}>
                 <Button
                   onClick={handleGenerate}
@@ -631,7 +632,7 @@ const AiSeoModal = ({ uid, documentId, locale, onClose }: AiSeoModalProps) => {
                     loading={applying}
                     disabled={structureType === 'none'}
                   >
-                    Apply to Entry
+                    Apply to Draft
                   </Button>
                 </>
               )}

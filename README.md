@@ -5,8 +5,10 @@ AI-powered SEO tag generator for Strapi 5. Automatically generates meta tags, Op
 ## Features
 
 - **AI-Powered Generation** — Uses any OpenAI-compatible LLM API (OpenAI, Google Gemini, Anthropic, Ollama, etc.) to generate optimized SEO metadata from your content.
+- **Schema Type Selection** — Choose from 12 popular Schema.org types (Article, BlogPosting, Product, FAQPage, Organization, LocalBusiness, WebPage, BreadcrumbList, HowTo, Event, Person, Service) via multi-select checkboxes. All selected by default.
+- **Custom Schema Types** — Add additional schema types via a comma-separated input field (e.g., Recipe, VideoObject, Course). The AI generates complete Schema.org JSON-LD for each selected type.
 - **Auto-Detection** — Automatically detects `yoastHeadJson` field or `seo` component (with `schema` and `ogGroup` repeatable components) in your content types.
-- **Copy & Apply** — Copy individual tags or apply all generated SEO data directly to your entry with one click.
+- **Copy & Apply** — Copy individual tags or apply all generated SEO data directly to your entry draft with one click. Page auto-reloads to reflect changes.
 - **Tabbed Interface** — Organized view with tabs for Meta Tags, Open Graph, Twitter Cards, Schema Markup, Robots directives, and full JSON output.
 - **Editable Output** — Edit any generated field before applying.
 - **Works with Strapi 5** — Built with `@strapi/sdk-plugin` v6 and Strapi Design System v2.
@@ -83,12 +85,13 @@ A component named `seo` with the following fields:
 
 1. Open any existing entry in the Strapi admin panel.
 2. Click the **AI SEO** button in the right sidebar.
-3. Click **Generate SEO Tags** in the popup.
-4. Review the generated tags across the tabs (Meta Tags, OG Tags, Twitter, Schema, etc.).
-5. Use the **Copy** button next to any field to copy it to clipboard.
-6. Optionally **edit** any field directly in the popup.
-7. Click **Apply to Entry** to save all generated SEO data to the entry.
-8. Click **Regenerate** if you want to try again with fresh output.
+3. **Select Schema Types** — Check/uncheck the schema types you want generated. Use "Select All" / "Deselect All" to toggle quickly. Optionally add custom schema types in the text input (comma-separated).
+4. Click **Generate SEO Tags** in the popup.
+5. Review the generated tags across the tabs (Meta Tags, OG Tags, Twitter, Schema, etc.).
+6. Use the **Copy** button next to any field to copy it to clipboard.
+7. Optionally **edit** any field directly in the popup.
+8. Click **Apply to Draft** to save all generated SEO data to the entry draft. The page auto-reloads to show changes.
+9. Click **Regenerate** if you want to try again with fresh output (you can change schema selections before regenerating).
 
 ## API Endpoints
 
