@@ -5,7 +5,9 @@ AI-powered SEO tag generator for Strapi 5. Automatically generates meta tags, Op
 ## Features
 
 - **AI-Powered Generation** — Uses any OpenAI-compatible LLM API (OpenAI, Google Gemini, Anthropic, Ollama, etc.) to generate optimized SEO metadata from your content.
-- **Schema Type Selection** — Choose from 12 popular Schema.org types (Article, BlogPosting, Product, FAQPage, Organization, LocalBusiness, WebPage, BreadcrumbList, HowTo, Event, Person, Service) via multi-select checkboxes. All selected by default.
+- **Page Instructions** — Add a free-text instruction to give the AI context about the page type, target audience, or specific SEO requirements before generating (e.g., *"This is a product page for a luxury watch brand targeting high-end customers in the US market"*).
+- **Field Selection** — Choose which SEO fields to generate via checkboxes (Title, Meta Description, Keywords, Canonical URL, Robots Directives, Open Graph Tags, Twitter Card, Schema Markup). All fields are selected by default. The AI generates only the fields you select.
+- **Schema Type Selection** — When Schema Markup is enabled, choose from 12 popular Schema.org types (Article, BlogPosting, Product, FAQPage, Organization, LocalBusiness, WebPage, BreadcrumbList, HowTo, Event, Person, Service) via multi-select checkboxes. All selected by default.
 - **Custom Schema Types** — Add additional schema types via a comma-separated input field (e.g., Recipe, VideoObject, Course). The AI generates complete Schema.org JSON-LD for each selected type.
 - **Auto-Detection** — Automatically detects `yoastHeadJson` field or `seo` component (with `schema` and `ogGroup` repeatable components) in your content types.
 - **Copy & Apply** — Copy individual tags or apply all generated SEO data directly to your entry draft with one click. Page auto-reloads to reflect changes.
@@ -85,13 +87,15 @@ A component named `seo` with the following fields:
 
 1. Open any existing entry in the Strapi admin panel.
 2. Click the **AI SEO** button in the right sidebar.
-3. **Select Schema Types** — Check/uncheck the schema types you want generated. Use "Select All" / "Deselect All" to toggle quickly. Optionally add custom schema types in the text input (comma-separated).
-4. Click **Generate SEO Tags** in the popup.
-5. Review the generated tags across the tabs (Meta Tags, OG Tags, Twitter, Schema, etc.).
-6. Use the **Copy** button next to any field to copy it to clipboard.
-7. Optionally **edit** any field directly in the popup.
-8. Click **Apply to Draft** to save all generated SEO data to the entry draft. The page auto-reloads to show changes.
-9. Click **Regenerate** if you want to try again with fresh output (you can change schema selections before regenerating).
+3. **(Optional) Page Instructions** — Type context about the page in the instructions field (e.g., the page type, target audience, brand tone, or market). This helps the AI produce more relevant SEO metadata.
+4. **Fields to Generate** — Check/uncheck the SEO fields you want generated. By default all fields are selected (Title, Meta Description, Keywords, Canonical URL, Robots Directives, Open Graph Tags, Twitter Card, Schema Markup). Use "Select All" / "Deselect All" to toggle quickly.
+5. **Schema Types** *(visible when Schema Markup is selected)* — Check/uncheck the Schema.org types you want. Optionally add custom schema types in the text input (comma-separated).
+6. Click **Generate SEO Tags**.
+7. Review the generated tags across the tabs (Meta Tags, OG Tags, Twitter, Schema, etc.).
+8. Use the **Copy** button next to any field to copy it to clipboard.
+9. Optionally **edit** any field directly in the popup.
+10. Click **Apply to Draft** to save all generated SEO data to the entry draft. The page auto-reloads to show changes.
+11. Click **Regenerate** to try again with fresh output (you can adjust instructions and field selections before regenerating).
 
 ## API Endpoints
 
@@ -102,6 +106,18 @@ The plugin registers the following admin API routes (all require authenticated a
 | `POST` | `/ai-seo/generate` | Generate SEO tags for an entry |
 | `POST` | `/ai-seo/apply` | Apply generated SEO data to an entry |
 | `GET` | `/ai-seo/settings` | Check if LLM is configured |
+
+### `POST /ai-seo/generate` — Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `uid` | string | ✓ | Content type UID (e.g. `api::article.article`) |
+| `documentId` | string | ✓ | Entry document ID |
+| `locale` | string | | Locale for localized content types |
+| `pageInstructions` | string | | Free-text instructions for the AI (page type, audience, etc.) |
+| `selectedFields` | string[] | | Fields to generate. Defaults to all fields when omitted. Allowed values: `title`, `description`, `keywords`, `canonical`, `robots`, `openGraph`, `twitterCard`, `schema` |
+| `schemaTypes` | string[] | | Schema.org types to generate (used when `schema` is in `selectedFields`) |
+| `customSchemas` | string | | Comma-separated additional schema types |
 
 ## Security
 
@@ -114,6 +130,23 @@ The plugin registers the following admin API routes (all require authenticated a
 
 - Strapi 5.x
 - Node.js >= 20.0.0
+
+## Changelog
+
+### v1.2.0
+- **New: Page Instructions** — Free-text input to give the AI context about the page (type, audience, brand, etc.) before generating SEO tags.
+- **New: Field Selection** — Checkboxes to choose which SEO fields to generate (Title, Meta Description, Keywords, Canonical URL, Robots Directives, Open Graph Tags, Twitter Card, Schema Markup). All selected by default.
+- **Improved: Schema Types panel** — Now shown only when the Schema Markup field is selected, reducing visual clutter.
+- **Improved: Generate button** — Disabled when no fields are selected.
+
+### v1.1.0
+- Schema type selection with 12 popular Schema.org types.
+- Custom schema types input.
+- Editable output fields in the modal.
+
+### v1.0.0
+- Initial release with yoastHeadJson and seo component auto-detection.
+- Generate, copy, and apply SEO tags from the Strapi admin panel.
 
 ## Reporting Issues
 

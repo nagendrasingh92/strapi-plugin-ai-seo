@@ -4,6 +4,8 @@ interface GenerateParams {
   uid: string;
   documentId: string;
   locale?: string;
+  pageInstructions?: string;
+  selectedFields?: string[];
   schemaTypes?: string[];
   customSchemas?: string;
 }
@@ -22,6 +24,8 @@ interface SeoStructure {
   hasOgGroup: boolean;
 }
 
+const ALL_FIELDS = ['title', 'description', 'keywords', 'canonical', 'robots', 'openGraph', 'twitterCard', 'schema'];
+
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   /**
    * Detect the SEO field structure for a content type.
@@ -29,12 +33,10 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   _detectSeoStructure(contentType: any): SeoStructure {
     const attrs = contentType.attributes || {};
 
-    // Check for yoastHeadJson field
     if (attrs.yoastHeadJson) {
       return { type: 'yoastHeadJson', hasSchema: true, hasOgGroup: true };
     }
 
-    // Check for seo component
     if (attrs.seo && (attrs.seo as any).type === 'component') {
       const componentName = (attrs.seo as any).component;
       let hasSchema = false;
@@ -69,7 +71,6 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       const type = (attr as any).type;
       if (['string', 'text', 'richtext'].includes(type) && entry[key]) {
         const value = String(entry[key]);
-        // Strip HTML tags for richtext
         const clean = value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
         if (clean) {
           textParts.push(`${key}: ${clean}`);
@@ -81,97 +82,147 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 
   /**
-   * Build the LLM prompt based on content and structure type.
+   * Build the LLM prompt based on content, structure type, selected fields, and page instructions.
    */
-  _buildPrompt(content: string, structure: SeoStructure, existingSeo: any, schemaTypes?: string[], customSchemas?: string): string {
-    // Build schema instructions
+  _buildPrompt(
+    content: string,
+    structure: SeoStructure,
+    existingSeo: any,
+    schemaTypes?: string[],
+    customSchemas?: string,
+    pageInstructions?: string,
+    selectedFields?: string[]
+  ): string {
+    const fields = selectedFields && selectedFields.length > 0 ? selectedFields : ALL_FIELDS;
+
+    // Build schema instruction (only when schema field is requested)
     let schemaInstruction = '';
-    const allSchemaTypes: string[] = [...(schemaTypes || [])];
-    if (customSchemas) {
-      const custom = customSchemas.split(',').map((s: string) => s.trim()).filter(Boolean);
-      allSchemaTypes.push(...custom);
-    }
-    if (allSchemaTypes.length > 0) {
-      schemaInstruction = `\nSCHEMA TYPES TO GENERATE: You MUST generate schema markup for each of these types: ${allSchemaTypes.join(', ')}. Generate a complete, valid Schema.org JSON-LD object for EACH type listed.`;
+    if (fields.includes('schema')) {
+      const allSchemaTypes: string[] = [...(schemaTypes || [])];
+      if (customSchemas) {
+        const custom = customSchemas.split(',').map((s: string) => s.trim()).filter(Boolean);
+        allSchemaTypes.push(...custom);
+      }
+      if (allSchemaTypes.length > 0) {
+        schemaInstruction = `\nSCHEMA TYPES TO GENERATE: You MUST generate schema markup for each of these types: ${allSchemaTypes.join(', ')}. Generate a complete, valid Schema.org JSON-LD object for EACH type listed.`;
+      }
     }
 
-    const basePrompt = `You are an expert SEO specialist. Analyze the following content and generate comprehensive SEO metadata.
+    const pageContext = pageInstructions
+      ? `\nPAGE CONTEXT / INSTRUCTIONS:\n${pageInstructions}\n`
+      : '';
 
+    // Describe which fields are requested
+    const fieldNames = fields.map((f) => {
+      const map: Record<string, string> = {
+        title: 'Title',
+        description: 'Meta Description',
+        keywords: 'Keywords',
+        canonical: 'Canonical URL',
+        robots: 'Robots Directives',
+        openGraph: 'Open Graph Tags',
+        twitterCard: 'Twitter Card',
+        schema: 'Schema Markup',
+      };
+      return map[f] || f;
+    });
+
+    const basePrompt = `You are an expert SEO specialist. Analyze the following content and generate SEO metadata.
+${pageContext}
 CONTENT:
 ${content}
 
-${existingSeo ? `EXISTING SEO DATA (use as reference, improve if needed):
-${JSON.stringify(existingSeo, null, 2)}` : ''}
+${existingSeo ? `EXISTING SEO DATA (use as reference, improve if needed):\n${JSON.stringify(existingSeo, null, 2)}` : ''}
 ${schemaInstruction}
 
-Generate SEO metadata following these SEO best practices:
-- Title: 50-60 characters, include the primary keyword extracted from the content
-- Description: 150-160 characters, compelling and keyword-rich based on the actual content
-- Keywords: comma-separated, 5-10 relevant keywords extracted from the content
+FIELDS REQUESTED: ${fieldNames.join(', ')}
+Generate ONLY the fields listed above. Do not generate fields that are not listed.
+
+SEO best practices:
+- Title: 50-60 characters, include the primary keyword from the content
+- Description: 150-160 characters, compelling and keyword-rich
+- Keywords: comma-separated, 5-10 relevant keywords
 
 CRITICAL RULES:
 - Generate REAL, ACTUAL content based on the text provided above. Do NOT use placeholders like [primary keyword], [keyword 1], [brand name], etc.
-- Every field must contain actual, finalized text derived from the content - never template variables or bracketed placeholders.
+- Every field must contain finalized text derived from the content — never template variables or bracketed placeholders.
+- URL FIELDS (canonical, canonicalURL, og:image, twitter:image, og_image, and any other URL fields): leave as an empty string "" if the actual URL is not present in the content. NEVER invent, guess, or fabricate URLs. NEVER use example.com, yoursite.com, yourdomain.com, website.com, or any other placeholder domain.
 - Return ONLY valid JSON, no markdown, no code blocks, no explanation.`;
 
     if (structure.type === 'yoastHeadJson') {
       return `${basePrompt}
 
-Return JSON with these keys (fill every value with real content from the text above, NO placeholders):
+Return JSON with ONLY these keys (include only the fields listed in FIELDS REQUESTED):
 {
-  "title": "(actual SEO title based on content)",
-  "description": "(actual meta description based on content)",
-  "canonical": "",
-  "og_title": "(actual OG title)",
+${fields.includes('title') ? '  "title": "(actual SEO title based on content)",' : ''}
+${fields.includes('description') ? '  "description": "(actual meta description based on content)",' : ''}
+${fields.includes('keywords') ? '  "keywords": "(actual comma-separated keywords)",' : ''}
+${fields.includes('canonical') ? '  "canonical": "(leave empty string if URL not found in content)",' : ''}
+${fields.includes('openGraph') ? `  "og_title": "(actual OG title)",
   "og_description": "(actual OG description)",
   "og_type": "article",
   "og_locale": "en_US",
-  "twitter_card": "summary_large_image",
-  "robots": {
+  "og_site_name": "(site name if found in content, otherwise empty string)",
+  "og_image": "(leave empty string — do not invent URLs)",` : ''}
+${fields.includes('twitterCard') ? `  "twitter_card": "summary_large_image",` : ''}
+${fields.includes('robots') ? `  "robots": {
     "index": "index",
     "follow": "follow",
     "max-snippet": "max-snippet:-1",
     "max-image-preview": "max-image-preview:large",
     "max-video-preview": "max-video-preview:-1"
-  },
-  "schema": {
+  },` : ''}
+${fields.includes('schema') ? `  "schema": {
     "@context": "https://schema.org",
     "@graph": [... generate schema objects for each requested schema type ...]
-  },
-  "keywords": "(actual comma-separated keywords)"
+  }` : ''}
 }`;
+    }
+
+    // seo component structure
+    const includeOgGroup = fields.includes('openGraph') || fields.includes('twitterCard');
+    const ogGroupEntries: string[] = [];
+
+    if (fields.includes('openGraph')) {
+      ogGroupEntries.push(
+        `    { "property": "og:title", "content": "(actual OG title)", "name": "" }`,
+        `    { "property": "og:description", "content": "(actual OG description)", "name": "" }`,
+        `    { "property": "og:type", "content": "article", "name": "" }`,
+        `    { "property": "og:image", "content": "(empty string — do not invent URLs)", "name": "" }`,
+        `    { "property": "og:image:type", "content": "image/jpeg", "name": "" }`,
+        `    { "property": "og:image:width", "content": "1200", "name": "" }`
+      );
+    }
+    if (fields.includes('twitterCard')) {
+      ogGroupEntries.push(
+        `    { "property": "twitter:card", "content": "summary_large_image", "name": "" }`,
+        `    { "property": "twitter:title", "content": "(actual Twitter title)", "name": "" }`,
+        `    { "property": "twitter:description", "content": "(actual Twitter description)", "name": "" }`,
+        `    { "property": "twitter:image", "content": "(empty string — do not invent URLs)", "name": "" }`
+      );
     }
 
     return `${basePrompt}
 
-Return JSON with these keys (fill every value with real content from the text above, NO placeholders):
+Return JSON with ONLY these keys (include only the fields listed in FIELDS REQUESTED):
 {
-  "title": "(actual SEO title based on content)",
-  "description": "(actual meta description based on content)",
-  "keywords": "(actual comma-separated keywords)",
-  "canonicalURL": "",
-  "noindex": false,
-  "nofollow": false,
-  "schema": [
+${fields.includes('title') ? '  "title": "(actual SEO title based on content)",' : ''}
+${fields.includes('description') ? '  "description": "(actual meta description based on content)",' : ''}
+${fields.includes('keywords') ? '  "keywords": "(actual comma-separated keywords)",' : ''}
+${fields.includes('canonical') ? '  "canonicalURL": "(leave empty string if URL not found in content)",' : ''}
+${fields.includes('robots') ? `  "noindex": false,
+  "nofollow": false,` : ''}
+${fields.includes('schema') ? `  "schema": [
     ... for EACH requested schema type, generate an object like:
     {
       "title": "(descriptive title for this schema)",
       "type": "(schema type name, e.g. Article, FAQPage)",
       "schema": { "@context": "https://schema.org", "@type": "...", ... complete schema object ... }
     }
-  ],
-  "ogGroup": [
-    { "property": "og:title", "content": "(actual OG title)", "name": "" },
-    { "property": "og:description", "content": "(actual OG description)", "name": "" },
-    { "property": "og:type", "content": "article", "name": "" },
-    { "property": "og:image", "content": "", "name": "" },
-    { "property": "og:image:type", "content": "image/jpeg", "name": "" },
-    { "property": "og:image:width", "content": "1200", "name": "" },
-    { "property": "twitter:card", "content": "summary_large_image", "name": "" },
-    { "property": "twitter:title", "content": "(actual Twitter title)", "name": "" },
-    { "property": "twitter:description", "content": "(actual Twitter description)", "name": "" },
-    { "property": "twitter:image", "content": "", "name": "" }
-  ]
+  ],` : ''}
+${includeOgGroup ? `  "ogGroup": [
+${ogGroupEntries.join(',\n')}
+  ]` : ''}
 }`;
   },
 
@@ -233,7 +284,6 @@ Return JSON with these keys (fill every value with real content from the text ab
       throw new Error('LLM returned empty response');
     }
 
-    // Parse the JSON response, handling possible markdown code blocks
     let cleaned = content.trim();
     if (cleaned.startsWith('```json')) {
       cleaned = cleaned.slice(7);
@@ -272,7 +322,7 @@ Return JSON with these keys (fill every value with real content from the text ab
   /**
    * Generate SEO tags for an entry.
    */
-  async generateSeoTags({ uid, documentId, locale, schemaTypes, customSchemas }: GenerateParams) {
+  async generateSeoTags({ uid, documentId, locale, pageInstructions, selectedFields, schemaTypes, customSchemas }: GenerateParams) {
     const contentType = strapi.contentTypes[uid as keyof typeof strapi.contentTypes];
     if (!contentType) {
       throw new Error(`Content type ${uid} not found`);
@@ -280,7 +330,6 @@ Return JSON with these keys (fill every value with real content from the text ab
 
     const structure = this._detectSeoStructure(contentType);
 
-    // Fetch the entry with populated fields
     const queryOptions: any = { populate: '*' };
     if (locale) queryOptions.locale = locale;
 
@@ -293,17 +342,14 @@ Return JSON with these keys (fill every value with real content from the text ab
       throw new Error(`Entry ${documentId} not found in ${uid}`);
     }
 
-    // Extract content for LLM
     const content = this._extractContent(entry, contentType);
     if (!content) {
       throw new Error('No text content found in entry to generate SEO tags from');
     }
 
-    // Get existing SEO data as reference
     const existingSeo = this._getExistingSeo(entry, structure);
 
-    // Build prompt and call LLM
-    const prompt = this._buildPrompt(content, structure, existingSeo, schemaTypes, customSchemas);
+    const prompt = this._buildPrompt(content, structure, existingSeo, schemaTypes, customSchemas, pageInstructions, selectedFields);
     const generated = await this._callLLM(prompt);
 
     return {
